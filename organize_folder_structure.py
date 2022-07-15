@@ -93,7 +93,7 @@ def CropBackground(image, label):
     return image_crop, label_crop
 
 
-def Registration(image, label):
+def Registration(image, label, ct):
     image, image_sobel, label, label_sobel, = image, image, label, label
 
     Gaus = sitk.GradientMagnitudeRecursiveGaussianImageFilter()
@@ -112,7 +112,11 @@ def Registration(image, label):
     # registration_method.SetMetricAs
     # Similarity metric settings.
     # registration_method.SetMetricAsJointHistogramMutualInformation(numberOfHistogramBins=60, varianceForJointPDFSmoothing=0.25)
-    registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=5) # original, was 50
+    if(ct):
+        registration_method.SetMetricAsANTSNeighborhoodCorrelation(2)
+    else:
+        registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50) # original, was 50
+
     registration_method.SetMetricSamplingStrategy(registration_method.RANDOM)
     registration_method.SetMetricSamplingPercentage(0.1)
     registration_method.SetInterpolator(sitk.sitkLinear)
@@ -152,7 +156,7 @@ if __name__ == "__main__":
     list_images = lstFiles(args.images)
     list_labels = lstFiles(args.labels)
 
-    reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
+    #reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
     reference_image = sitk.ReadImage("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/CT/59.nii.gz")
 
     print(reference_image)
@@ -167,6 +171,8 @@ if __name__ == "__main__":
     for i in range(len(list_images) - int(args.split)):
 
         save_directory_images = './Data_folder/train/images'
+        #save_directory_labels = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri"
+        #save_directory_images = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct"
         save_directory_labels = './Data_folder/train/labels'
 
         if not os.path.isdir(save_directory_images):
@@ -194,15 +200,15 @@ if __name__ == "__main__":
         image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
 
-        #normalize
+        """#normalize
         normalize = sitk.NormalizeImageFilter()
         image = normalize.Execute(image)
-        label = normalize.Execute(label)
+        label = normalize.Execute(label)"""
 
 
-        label, reference_image = Registration(label, reference_image)
-        image, reference_image = Registration(image, reference_image)  # new
-        image, label = Registration(image, label)
+        label, reference_image = Registration(label, reference_image, False)
+        image, reference_image = Registration(image, reference_image, True)  # new
+        #image, label = Registration(image, label)
 
         """image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')"""
@@ -247,13 +253,13 @@ if __name__ == "__main__":
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
 
         # normalize
-        normalize = sitk.NormalizeImageFilter()
+        """normalize = sitk.NormalizeImageFilter()
         image = normalize.Execute(image)
-        label = normalize.Execute(label)
+        label = normalize.Execute(label)"""
 
-        label, reference_image = Registration(label, reference_image)
-        image, reference_image = Registration(image, reference_image)  # new
-        image, label = Registration(image, label)
+        label, reference_image = Registration(label, reference_image, False)
+        image, reference_image = Registration(image, reference_image, True)  # new
+        # image, label = Registration(image, label)
 
         """image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear') 
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear') """

@@ -8,9 +8,7 @@ from options.train_options import TrainOptions
 import time
 from models import create_model
 from utils.visualizer import Visualizer
-from test import inference
 import wandb
-
 
 if __name__ == '__main__':
 
@@ -34,7 +32,8 @@ if __name__ == '__main__':
 
     # WandB
     experiment = wandb.init(project='3D-CycleGan', resume='allow', anonymous='must')
-    experiment.config.update(dict(epochs=opt.niter, batch_size=opt.batch_size, learning_rate=opt.lr))
+    # experiment = wandb.init(project='3D-CycleGan', resume=True, id= '3uuxi27m') # if resuming (--continue_train)
+    experiment.config.update(dict(epochs=opt.niter+opt.niter_decay, batch_size=opt.batch_size, learning_rate=opt.lr), allow_val_change=True)
     # -----------------------------------------------------
     model = create_model(opt)  # creation of the model
     model.setup(opt)
@@ -78,18 +77,18 @@ if __name__ == '__main__':
                     'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
                     'Labels': {
                         'true': wandb.Image(
-                            model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 32]), # recreated
+                            model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 32]),  # recreated
                         'pred': wandb.Image(
-                            model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 32]), # t2 for now
-                    },
-                })  # end
+                            model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 32]),  # t2 for now
+                    }
+                })  # end, removed .data
 
             if total_steps % opt.save_latest_freq == 0:
                 print('saving the latest model (epoch %d, total_steps %d)' %
                       (epoch, total_steps))
                 model.save_networks('latest')
 
-            # iter_data_time = time.time()
+            iter_data_time = time.time()
 
         if epoch % opt.save_epoch_freq == 0:
             print('saving the model at the end of epoch %d, iters %d' %
