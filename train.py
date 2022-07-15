@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     # WandB
     experiment = wandb.init(project='3D-CycleGan', resume='allow', anonymous='must')
-    # experiment = wandb.init(project='3D-CycleGan', resume=True, id= '3uuxi27m') # if resuming (--continue_train)
+    # experiment = wandb.init(project='3D-CycleGan', resume=True, id= '') # if resuming (--continue_train)
     experiment.config.update(dict(epochs=opt.niter+opt.niter_decay, batch_size=opt.batch_size, learning_rate=opt.lr), allow_val_change=True)
     # -----------------------------------------------------
     model = create_model(opt)  # creation of the model
@@ -71,7 +71,7 @@ if __name__ == '__main__':
                 # edit this
                 experiment.log({
                     'learning rate': model.optimizers[0].param_groups[0]['lr'],
-                    'mae': val_score,
+                    'mae': val_score.numpy(),
                     'epoch': epoch,
                     'step': total_steps,
                     'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
@@ -81,7 +81,7 @@ if __name__ == '__main__':
                         'pred': wandb.Image(
                             model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 32]),  # t2 for now
                     }
-                })  # end, removed .data
+                })  # end
 
             if total_steps % opt.save_latest_freq == 0:
                 print('saving the latest model (epoch %d, total_steps %d)' %
