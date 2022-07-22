@@ -9,6 +9,19 @@ import scipy.ndimage as ndimage
 from utils.NiftiDataset import *
 
 
+def ct_window(image, center=50, width=100):
+    low_bound = center - width // 2
+    up_bound = center + width // 2
+    if str(image.dtype).split(".")[0] == "torch":
+        windowed_image = image.clone()
+    else:
+        windowed_image = image.copy()
+    windowed_image[windowed_image < low_bound] = low_bound
+    windowed_image[windowed_image > up_bound] = up_bound
+    windowed_image -= windowed_image.min()
+    windowed_image /= (windowed_image.max() - windowed_image.min())
+    return windowed_image
+
 def numericalSort(value):
     numbers = re.compile(r'(\d+)')
     parts = numbers.split(value)
@@ -143,21 +156,19 @@ def Registration(image, label, ct):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images', default='./Data_folder/T1', help='path to the images a (early frames)')
-parser.add_argument('--labels', default='./Data_folder/T2', help='path to the images b (late frames)')
-parser.add_argument('--split', default=50, help='number of images for testing')
-parser.add_argument('--resolution', default=(1.6, 1.6, 1.6), help='new resolution to resample the all data')
+parser.add_argument('--images', default='./Data_folder/T1', help='path to the CTs')
+parser.add_argument('--labels', default='./Data_folder/CT', help='path to the T1s')
+parser.add_argument('--split', default=1, help='number of images for testing')
+parser.add_argument('--resolution', default=(1, 1, 1), help='new resolution to resample the all data')
 args = parser.parse_args()
 
 if __name__ == "__main__":
-
-    args.resolution = (1,1,1)
 
     list_images = lstFiles(args.images)
     list_labels = lstFiles(args.labels)
 
     #reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
-    reference_image = sitk.ReadImage("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/CT/59.nii.gz")
+    reference_image = sitk.ReadImage("C:/Users/Austin Tapp/Documents/3D-CycleGAN/Data_folder/CT/59.nii.gz")
 
     print(reference_image)
     reference_image = resample_sitk_image(reference_image, spacing=args.resolution, interpolator='linear')
@@ -267,8 +278,12 @@ if __name__ == "__main__":
         image = Align(image, reference_image)
         label = Align(label, reference_image)
 
-        label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii')
-        image_directory = os.path.join(str(save_directory_images), str(i) + '.nii')
+        image = sitk.GetArrayFromImage(image)
+        image = ct_window(image)
+        image = sitk.GetImageFromArray(image)
+
+        label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii.gz')
+        image_directory = os.path.join(str(save_directory_images), str(i) + '.nii.gz')
 
         sitk.WriteImage(image, image_directory)
         sitk.WriteImage(label, label_directory)

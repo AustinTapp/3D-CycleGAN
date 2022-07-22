@@ -11,7 +11,6 @@ from utils.visualizer import Visualizer
 import wandb
 
 if __name__ == '__main__':
-
     # -----  Loading the init options -----
     opt = TrainOptions().parse()
 
@@ -71,15 +70,15 @@ if __name__ == '__main__':
                 # edit this
                 experiment.log({
                     'learning rate': model.optimizers[0].param_groups[0]['lr'],
-                    'mae': val_score.numpy(),
+                    'mae': val_score,
                     'epoch': epoch,
                     'step': total_steps,
-                    'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
+                    'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 16]),
                     'Labels': {
                         'true': wandb.Image(
-                            model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 32]),  # recreated
+                            model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 16]),  # recreated
                         'pred': wandb.Image(
-                            model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 32]),  # t2 for now
+                            model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 16]),  # t2 for now
                     }
                 })  # end
 

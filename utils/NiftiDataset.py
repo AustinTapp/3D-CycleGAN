@@ -1316,9 +1316,10 @@ class Augmentation(object):
             return {'image': image, 'label': label}
 
 
+#confidence crop used?
 class ConfidenceCrop(object):
     """
-    Crop the image in a sample that is certain distance from individual labels center.
+    Crop the image in a sample that is cerdain distance from individual labels center.
     This is usually used for data augmentation with very small label volumes.
     The distance offset from connected label centroid is model by Gaussian distribution with mean zero and user input sigma (default to be 2.5)
     i.e. If n isolated labels are found, one of the label's centroid will be randomly selected, and the cropping zone will be offset by following scheme:

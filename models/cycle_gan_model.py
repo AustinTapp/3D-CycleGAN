@@ -105,8 +105,8 @@ class CycleGANModel(BaseModel):
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
             self.criterionGAN = networks3D.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
-            self.criterionCycle = torch.nn.L1Loss() # was L1
-            self.criterionIdt = torch.nn.L1Loss() # was L1
+            self.criterionCycle = torch.nn.MSELoss() #was L1 or MAE, the cycle loss, used for the recreated image
+            self.criterionIdt = torch.nn.MSELoss() #now is MSE, more aggressive enforcement
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))

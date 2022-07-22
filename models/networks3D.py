@@ -92,7 +92,6 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
 
-
 def define_D(input_nc, ndf, netD,
              n_layers_D=3, norm='batch', use_sigmoid=False, init_type='normal', init_gain=0.02, gpu_ids=[]):
     net = None
@@ -118,16 +117,21 @@ def define_D(input_nc, ndf, netD,
 # When LSGAN is used, it is basically same as MSELoss,
 # but it abstracts away the need to create the target label tensor
 # that has the same size as the input
+# additional models or loss functions may be found at: https://github.com/AustinTapp/Unpaired_MR_to_sCT_2D
+
 class GANLoss(nn.Module):
     def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0):
         super(GANLoss, self).__init__()
         self.register_buffer('real_label', torch.tensor(target_real_label))
         self.register_buffer('fake_label', torch.tensor(target_fake_label))
-        """if use_lsgan:
+        """
+        **consider loss adjustment**
+        if use_lsgan:
             self.loss = nn.MSELoss()
         else:
             self.loss = nn.BCELoss()"""
-        self.loss = nn.MSELoss() # added by me
+
+        self.loss = nn.MSELoss()  # added by Allie* look at adding in BCE
 
     def get_target_tensor(self, input, target_is_real):
         if target_is_real:
