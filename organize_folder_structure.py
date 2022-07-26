@@ -170,8 +170,8 @@ def Registration(image, label, ct):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images', default='./Data_folder/T1', help='path to the CTs')
-parser.add_argument('--labels', default='./Data_folder/CT', help='path to the T1s')
+parser.add_argument('--images', default='./Data_folder/CT', help='path to the CTs')
+parser.add_argument('--labels', default='./Data_folder/T1', help='path to the T1s')
 parser.add_argument('--split', default=1, help='number of images for testing')
 parser.add_argument('--resolution', default=(1, 1, 1), help='new resolution to resample the all data')
 args = parser.parse_args()

@@ -106,11 +106,13 @@ class CycleGANModel(BaseModel):
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
             self.criterionGAN = networks3D.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
-            self.criterionCycleCT = torch.nn.MSELoss() #was L1 or MAE, the cycle loss, used for the recreated image
-            self.criterionIdtCT = torch.nn.MSELoss() #now is MSE, more aggressive enforcement
-            self.criterionCycleMR = torch.nn.KLDivLoss()  # relaxing MR enforcment
-            self.criterionIdtMR = torch.nn.KLDivLoss()  # relaxing MR generator
-            #self.MICriterion = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
+            self.criterionCycleCT = torch.nn.MSELoss()  # was L1 or MAE, the cycle loss, used for the recreated image
+            self.criterionIdtCT = torch.nn.MSELoss()  # now is MSE, more aggressive enforcement
+
+            # https://towardsdatascience.com/most-common-loss-functions-in-machine-learning-c7212a99dae0 - Huber: 0.1
+            self.criterionCycleMR = torch.nn.HuberLoss(reduction='mean', delta=0.1)  # relaxing MR reproduction level
+            self.criterionIdtMR = torch.nn.HuberLoss(reduction='mean', delta=0.1)  # relaxing MR generator
+            # self.MICriterion = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
 
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
@@ -175,10 +177,10 @@ class CycleGANModel(BaseModel):
             # G_A should be identity if real_B is fed.
             self.idt_A = self.netG_A(self.real_B)
 
-            self.loss_idt_A = self.criterionIdtCT(self.idt_A, self.real_B) * lambda_B * lambda_idt
+            self.loss_idt_A = self.criterionIdtMR(self.idt_A, self.real_B) * lambda_B * lambda_idt
             # G_B should be identity if real_A is fed.
             self.idt_B = self.netG_B(self.real_A)
-            self.loss_idt_B = self.criterionIdtMR(self.idt_B, self.real_A) * lambda_A * lambda_idt
+            self.loss_idt_B = self.criterionIdtCT(self.idt_B, self.real_A) * lambda_A * lambda_idt
         else:
             self.loss_idt_A = 0
             self.loss_idt_B = 0
@@ -190,10 +192,10 @@ class CycleGANModel(BaseModel):
         self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
 
         # Forward cycle loss
-        self.loss_cycle_A = self.criterionCycleMR(self.rec_A, self.real_A) * lambda_A
+        self.loss_cycle_A = self.criterionCycleCT(self.rec_A, self.real_A) * lambda_A
 
         # Backward cycle loss
-        self.loss_cycle_B = self.criterionCycleCT(self.rec_B, self.real_B) * lambda_B
+        self.loss_cycle_B = self.criterionCycleMR(self.rec_B, self.real_B) * lambda_B
 
 
         # cross correlation loss
