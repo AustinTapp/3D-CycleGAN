@@ -22,6 +22,20 @@ def ct_window(image, center=50, width=100):
     windowed_image /= (windowed_image.max() - windowed_image.min())
     return windowed_image
 
+def Normalization(image):
+    """
+    Normalize an image to 0 - 255 (8bits)
+    """
+    normalizeFilter = sitk.NormalizeImageFilter()
+    resacleFilter = sitk.RescaleIntensityImageFilter()
+    resacleFilter.SetOutputMaximum(255)
+    resacleFilter.SetOutputMinimum(0)
+
+    image = normalizeFilter.Execute(image)  # set mean and std deviation
+    image = resacleFilter.Execute(image)  # set intensity 0-255
+
+    return image
+
 def numericalSort(value):
     numbers = re.compile(r'(\d+)')
     parts = numbers.split(value)
@@ -125,7 +139,7 @@ def Registration(image, label, ct):
     # registration_method.SetMetricAs
     # Similarity metric settings.
     # registration_method.SetMetricAsJointHistogramMutualInformation(numberOfHistogramBins=60, varianceForJointPDFSmoothing=0.25)
-    if(ct):
+    if (ct):
         registration_method.SetMetricAsANTSNeighborhoodCorrelation(2)
     else:
         registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50) # original, was 50
@@ -211,21 +225,33 @@ if __name__ == "__main__":
         image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
 
-        """#normalize
-        normalize = sitk.NormalizeImageFilter()
-        image = normalize.Execute(image)
-        label = normalize.Execute(label)"""
-
-
         label, reference_image = Registration(label, reference_image, False)
         image, reference_image = Registration(image, reference_image, True)  # new
-        #image, label = Registration(image, label)
+        # image, label = Registration(image, label)
 
         """image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')"""
 
         image = Align(image, reference_image)
         label = Align(label, reference_image)
+
+        """# normalize
+                image = Normalization(image)
+                label = Normalization(label)"""
+
+        image = sitk.GetArrayFromImage(image)
+        image = ct_window(image)
+
+        """label = sitk.GetArrayFromImage(label)
+        label /= (label.max()-label.min())"""
+
+        """# masking
+        segmentation = sitk.BinaryThresholdImageFilter()
+        segmentation.SetLowerThreshold(100) # tbd
+        mask = segmentation.Execute(image)"""
+        # label = sitk.GetImageFromArray(label)
+
+        image = sitk.GetImageFromArray(image)
 
         label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii')
         image_directory = os.path.join(str(save_directory_images), str(i) + '.nii')
@@ -238,8 +264,6 @@ if __name__ == "__main__":
 
         sitk.WriteImage(image, image_directory)
         sitk.WriteImage(label, label_directory)
-
-
 
     for i in range(int(args.split)):
 
@@ -262,11 +286,6 @@ if __name__ == "__main__":
 
         image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
-
-        # normalize
-        """normalize = sitk.NormalizeImageFilter()
-        image = normalize.Execute(image)
-        label = normalize.Execute(label)"""
 
         label, reference_image = Registration(label, reference_image, False)
         image, reference_image = Registration(image, reference_image, True)  # new

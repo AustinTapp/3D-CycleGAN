@@ -28,7 +28,7 @@ class BaseOptions():
         parser.add_argument('--netG', type=str, default='resnet_9blocks', help='selects model to use for netG. Look on Networks3D to see the all list')
 
         parser.add_argument('--gpu_ids', default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        parser.add_argument('--name', type=str, default='MRtoCTmseWindowed', help='name of the experiment. It decides where to store samples and models')
+        parser.add_argument('--name', type=str, default='MRtoCTvariedLoss', help='name of the experiment. It decides where to store samples and models')
         parser.add_argument('--model', type=str, default='cycle_gan', help='chooses which model to use. cycle_gan')
 
         parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA (keep it AtoB)')
@@ -36,7 +36,7 @@ class BaseOptions():
         parser.add_argument('--workers', default=8, type=int, help='number of data loading workers')
         parser.add_argument('--norm', type=str, default='instance', help='instance normalization or batch normalization')
 
-        parser.add_argument('--no_dropout', action='store_false', help='no dropout for the generator')
+        parser.add_argument('--no_dropout', action='store_true', help='no dropout for the generator')
         parser.add_argument('--init_type', type=str, default='normal', help='network initialization [normal|xavier|kaiming|orthogonal]')
         parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
