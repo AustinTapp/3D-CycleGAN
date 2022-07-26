@@ -9,6 +9,37 @@ import scipy.ndimage as ndimage
 from utils.NiftiDataset import *
 
 
+# window the input within two bounds specified by center and width and returns a image --> [0, 1]
+def ct_window(image, center=50, width=100):
+    low_bound = center - width // 2
+    up_bound = center + width // 2
+    if str(image.dtype).split(".")[0] == "torch":
+        windowed_image = image.clone()
+    else:
+        windowed_image = image.copy()
+
+    windowed_image[windowed_image < low_bound] = low_bound
+    windowed_image[windowed_image > up_bound] = up_bound
+    windowed_image -= windowed_image.min()
+    windowed_image /= (windowed_image.max() - windowed_image.min()) # makes it 0 to 1?
+    return windowed_image
+
+
+def Normalization(image):
+    """
+    Normalize an image to 0 - 255 (8bits)
+    """
+    normalizeFilter = sitk.NormalizeImageFilter()
+    resacleFilter = sitk.RescaleIntensityImageFilter()
+    resacleFilter.SetOutputMaximum(255)
+    resacleFilter.SetOutputMinimum(0)
+
+    image = normalizeFilter.Execute(image)  # set mean and std deviation
+    image = resacleFilter.Execute(image)  # set intensity 0-255
+
+    return image
+
+
 def numericalSort(value):
     numbers = re.compile(r'(\d+)')
     parts = numbers.split(value)
@@ -112,10 +143,10 @@ def Registration(image, label, ct):
     # registration_method.SetMetricAs
     # Similarity metric settings.
     # registration_method.SetMetricAsJointHistogramMutualInformation(numberOfHistogramBins=60, varianceForJointPDFSmoothing=0.25)
-    if(ct):
+    if (ct):
         registration_method.SetMetricAsANTSNeighborhoodCorrelation(2)
     else:
-        registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50) # original, was 50
+        registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)  # original, was 50
 
     registration_method.SetMetricSamplingStrategy(registration_method.RANDOM)
     registration_method.SetMetricSamplingPercentage(0.1)
@@ -151,13 +182,13 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
 
-    args.resolution = (1,1,1)
+    args.resolution = (1, 1, 1)
 
     list_images = lstFiles(args.images)
     list_labels = lstFiles(args.labels)
 
-    #reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
-    reference_image = sitk.ReadImage("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/CT/59.nii.gz")
+    # reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
+    reference_image = sitk.ReadImage("C:/Users/pmilab/Desktop/raw ctmri/CT/59.nii.gz")
 
     print(reference_image)
     reference_image = resample_sitk_image(reference_image, spacing=args.resolution, interpolator='linear')
@@ -170,10 +201,11 @@ if __name__ == "__main__":
 
     for i in range(len(list_images) - int(args.split)):
 
-        save_directory_images = './Data_folder/train/images'
-        #save_directory_labels = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri"
-        #save_directory_images = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct"
-        save_directory_labels = './Data_folder/train/labels'
+        # save_directory_images = './Data_folder/train/images'
+        save_directory_labels = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri"
+        save_directory_images = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct"
+        # save_directory_labels = './Data_folder/train/labels'
+        # save_directory_masks = './Data_folder/train/masks' # for segmentation
 
         if not os.path.isdir(save_directory_images):
             os.mkdir(save_directory_images)
@@ -200,15 +232,9 @@ if __name__ == "__main__":
         image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
 
-        """#normalize
-        normalize = sitk.NormalizeImageFilter()
-        image = normalize.Execute(image)
-        label = normalize.Execute(label)"""
-
-
         label, reference_image = Registration(label, reference_image, False)
         image, reference_image = Registration(image, reference_image, True)  # new
-        #image, label = Registration(image, label)
+        # image, label = Registration(image, label)
 
         """image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')"""
@@ -216,8 +242,26 @@ if __name__ == "__main__":
         image = Align(image, reference_image)
         label = Align(label, reference_image)
 
+        """# normalize
+        image = Normalization(image)
+        label = Normalization(label)"""
+
+        image = sitk.GetArrayFromImage(image)
+
+        image = ct_window(image)
+        """label = sitk.GetArrayFromImage(label)
+        label /= (label.max()-label.min())"""
+
+        """# masking
+        segmentation = sitk.BinaryThresholdImageFilter()
+        segmentation.SetLowerThreshold(100) # tbd
+        mask = segmentation.Execute(image)"""
+        # label = sitk.GetImageFromArray(label)
+        image = sitk.GetImageFromArray(image)
+
         label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii')
         image_directory = os.path.join(str(save_directory_images), str(i) + '.nii')
+        # mask_directory = os.path.join(str(save_directory_masks), str(i) + '.nii') # for mask
 
         """if int(args.split)+i >= len(list_labels):
             sitk.WriteImage(image, image_directory)
@@ -227,8 +271,7 @@ if __name__ == "__main__":
 
         sitk.WriteImage(image, image_directory)
         sitk.WriteImage(label, label_directory)
-
-
+        # sitk.WriteImage(mask, mask_directory) # for mask
 
     for i in range(int(args.split)):
 
@@ -252,11 +295,6 @@ if __name__ == "__main__":
         image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
 
-        # normalize
-        """normalize = sitk.NormalizeImageFilter()
-        image = normalize.Execute(image)
-        label = normalize.Execute(label)"""
-
         label, reference_image = Registration(label, reference_image, False)
         image, reference_image = Registration(image, reference_image, True)  # new
         # image, label = Registration(image, label)
@@ -266,6 +304,13 @@ if __name__ == "__main__":
 
         image = Align(image, reference_image)
         label = Align(label, reference_image)
+
+        image = ct_window(image)
+        # label = ct_window(label)
+
+        """ # normalize
+        image = Normalization(image)
+        label = Normalization(label)"""
 
         label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii')
         image_directory = os.path.join(str(save_directory_images), str(i) + '.nii')
