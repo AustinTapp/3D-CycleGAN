@@ -4,6 +4,26 @@ import random
 from .base_model import BaseModel
 from . import networks3D
 from monai.losses.ssim_loss import SSIMLoss
+import SimpleITK as sitk
+
+
+def sitk_mask(binary_image):
+    binary_image_np = binary_image.cpu().numpy()[0][0]
+    binary_image_sitk = sitk.GetImageFromArray(binary_image_np)
+    binary_image_sitk = sitk.Cast(binary_image_sitk, sitk.sitkInt8)
+    # 1. Convert binary image into a connected component image, each component has an integer label.
+    # 2. Relabel components so that they are sorted according to size (there is an
+    #    optional minimumObjectSize parameter to get rid of small components).
+    # 3. Get largest connected componet, label==1 in sorted component image.
+    component_image = sitk.ConnectedComponent(binary_image_sitk)
+    #component_image = component_image.Execute(binary_image_sitk)
+    sorted_component_image = sitk.RelabelComponent(component_image, sortByObjectSize=True)
+    largest_component_binary_image = sorted_component_image == 1
+    largest_component_binary_image = sitk.GetArrayFromImage(largest_component_binary_image)
+    # sitk.Show(largest_component_binary_image)
+    largest_component_binary_image = torch.from_numpy(largest_component_binary_image)
+    binary_image[0][0] = largest_component_binary_image
+    return binary_image
 
 
 class ImagePool():
@@ -106,10 +126,10 @@ class CycleGANModel(BaseModel):
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
             self.criterionGAN = networks3D.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
-            self.criterionCycle = torch.nn.MSELoss() # was L1
-            self.criterionIdt = torch.nn.MSELoss() # was L1
-            #self.MICriterionCycle = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
-            #self.MICriterionIdt = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
+            self.criterionCycle = torch.nn.MSELoss()  # was L1
+            self.criterionIdt = torch.nn.MSELoss()  # was L1
+            # self.MICriterionCycle = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
+            # self.MICriterionIdt = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
             self.criterionSeg = torch.nn.L1Loss()
 
             # initialize optimizers
@@ -131,8 +151,7 @@ class CycleGANModel(BaseModel):
         AtoB = self.opt.which_direction == 'AtoB'
         self.real_A = input[0 if AtoB else 1].to(self.device)
         self.real_B = input[1 if AtoB else 0].to(self.device)
-        #self.image_paths = input['A_paths' if AtoB else 'B_paths']
-
+        # self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
         self.fake_B = self.netG_A(self.real_A)
@@ -140,12 +159,14 @@ class CycleGANModel(BaseModel):
 
         self.fake_A = self.netG_B(self.real_B)
         self.rec_B = self.netG_A(self.fake_A)
+        # print(self.real_A)
 
-        #segmentation
-        #sigmoid = torch.nn.Sigmoid()
-        t = torch.Tensor([-.13]).to('cuda:0')  # threshold
+        # segmentation
+        # sigmoid = torch.nn.Sigmoid()
+        t = torch.Tensor([-.0001]).to('cuda:0')  # threshold
         self.mask_A = (self.real_A > t).float()
-        self.mask_B = (self.rec_A > t).float()# this is segmenting synthetic ct
+        self.mask_A = sitk_mask(self.mask_A)
+        self.mask_B = (self.rec_A > t).float()  # this is segmenting synthetic ct
 
     def backward_D_basic(self, netD, real, fake):
         # Real
@@ -211,8 +232,6 @@ class CycleGANModel(BaseModel):
         # Backward cycle loss
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
 
-
-
         '''
         self.cor_coeLoss
         '''
@@ -221,19 +240,18 @@ class CycleGANModel(BaseModel):
         self.loss_cor_coe_GB = networks3D.Cor_CoeLoss(self.fake_A,
                                                       self.real_B) * lambda_co_B  # fake mr & real ct; Evaluate the Generator of mr(G_B)"""
 
-
         # self.loss_G_A_MI = self.MICriterion(self.fake_B, self.real_A) * lambda_co_A
         # self.loss_G_B_MI = self.MICriterion(self.fake_A, self.real_B) * lambda_co_B
 
-        self.loss_seg = self.criterionSeg(self.mask_B, self.mask_A) # for mask
+        self.loss_seg = self.criterionSeg(self.mask_B, self.mask_A)  # for mask
 
         # need to add the MI loss/ shape constrain loss to the combined loss
 
         # combined loss
         # self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B # original
         # self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_cor_coe_GA + self.loss_cor_coe_GB
-        #self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_G_A_MI  # mutual information added
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_seg # seg loss
+        # self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_G_A_MI  # mutual information added
+        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_seg  # seg loss
 
         self.loss_G.backward()
 
