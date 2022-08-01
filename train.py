@@ -29,11 +29,12 @@ if __name__ == '__main__':
     print('length train list:', len(train_set))
     train_loader = DataLoader(train_set, batch_size=opt.batch_size, shuffle=True, num_workers=opt.workers,
                               pin_memory=True)  # Here are then fed to the network with a defined batch size
+    # print(train_loader)
 
     # WandB
-    experiment = wandb.init(project='3D-CycleGan', resume='allow', anonymous='must')
+    experiment = wandb.init(project='3D-CycleGan', resume='allow', anonymous='must', entity="3dcyclegan")
     # experiment = wandb.init(project='3D-CycleGan', resume=True, id= '') # if resuming (--continue_train)
-    experiment.config.update(dict(epochs=opt.niter+opt.niter_decay, batch_size=opt.batch_size, learning_rate=opt.lr), allow_val_change=True)
+    experiment.config.update(dict(epochs=opt.niter + opt.niter_decay, batch_size=opt.batch_size, learning_rate=opt.lr),allow_val_change=True)
     # -----------------------------------------------------
     model = create_model(opt)  # creation of the model
     model.setup(opt)
@@ -68,10 +69,9 @@ if __name__ == '__main__':
                 visualizer.print_current_losses(epoch, epoch_iter, losses, t, t_data)
                 mae = MeanAbsoluteError()
                 val_score = mae(model.get_current_visuals()['rec_A'].cpu(), model.get_current_visuals()['real_A'].cpu())
-                # edit this
                 experiment.log({
                     'learning rate': model.optimizers[0].param_groups[0]['lr'],
-                    'mae': val_score.numpy(),
+                    'mae': val_score,
                     'epoch': epoch,
                     'step': total_steps,
                     'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
@@ -80,7 +80,9 @@ if __name__ == '__main__':
                             model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 32]),  # recreated
                         'pred': wandb.Image(
                             model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 32]),  # t2 for now
-                    }
+                    },
+                    'Masks': { 'true':wandb.Image(model.get_current_visuals()['mask_A'].squeeze().data.cpu().numpy()[:,:,32]),
+                              'pred': wandb.Image(model.get_current_visuals()['mask_B'].squeeze().data.cpu().numpy()[:,:,32])}
                 })  # end
 
             if total_steps % opt.save_latest_freq == 0:
