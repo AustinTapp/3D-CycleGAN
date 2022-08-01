@@ -172,7 +172,7 @@ def Registration(image, label, ct):
 parser = argparse.ArgumentParser()
 parser.add_argument('--images', default='./Data_folder/CT', help='path to the CTs')
 parser.add_argument('--labels', default='./Data_folder/T1', help='path to the T1s')
-parser.add_argument('--split', default=1, help='number of images for testing')
+parser.add_argument('--split', default=0, help='number of images for testing')
 parser.add_argument('--resolution', default=(1, 1, 1), help='new resolution to resample the all data')
 args = parser.parse_args()
 
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     list_labels = lstFiles(args.labels)
 
     #reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
-    reference_image = sitk.ReadImage("C:/Users/Austin Tapp/Documents/3D-CycleGAN/Data_folder/CT/59.nii.gz")
+    reference_image = sitk.ReadImage("C:/Users/Austin Tapp/Documents/3D-CycleGAN/Data_folder/CT/69.nii.gz")
 
     print(reference_image)
     reference_image = resample_sitk_image(reference_image, spacing=args.resolution, interpolator='linear')
