@@ -2,16 +2,40 @@ import SimpleITK as sitk
 import matplotlib.pyplot as plt
 import torch
 from torchmetrics import MeanAbsoluteError
+from torchmetrics import PeakSignalNoiseRatio
+from torchmetrics.image.fid import FrechetInceptionDistance
+from torchmetrics import StructuralSimilarityIndexMeasure
+import gc
+
+
+def Normalization(image):
+    """
+    Normalize an image to 0 - 255 (8bits)
+    """
+    normalizeFilter = sitk.NormalizeImageFilter()
+    resacleFilter = sitk.RescaleIntensityImageFilter()
+    resacleFilter.SetOutputMaximum(255)
+    resacleFilter.SetOutputMinimum(0)
+
+    image = normalizeFilter.Execute(image)  # set mean and std deviation
+    image = resacleFilter.Execute(image)  # set intensity 0-255
+
+    return image
+
 
 if __name__ == '__main__':
     # loading images
     reader = sitk.ImageFileReader()
-    reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/train/images/0.nii") # ground truth
+    reader.SetFileName(
+        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/0.nii")  # ground truth
     true = reader.Execute()
+    true = Normalization(true)
 
-    reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/train/images/0.nii") # output result
-    # reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/test/labels/0.nii")
+    reader.SetFileName(
+        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/segment-component1.nii")
+    # reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/test/labels/0.nii") # output result
     result = reader.Execute()
+    result = Normalization(result)
     result = sitk.GetArrayFromImage(result)
     print("result shape", result.shape)
 
@@ -20,11 +44,17 @@ if __name__ == '__main__':
     # print(true[0])
     print("true slice", true[0].shape, "\nresult slice", result[0].shape)
 
-    # histogram
-    histA = []
-    histB = []
+    """for i in range(result[:, 0, 0].size):
+        for j in range(result[0, :, 0].size):
+            for k in range(result[0, 0, :].size):
+                if result[i, j, k] < 0:
+                    result[i, j, k] = 0
+                if true[i, j, k] < 0:
+                    true[i, j, k] = 0
 
-    print("length of his", true[:, 0, 0].size)
+    # histogram
+    histA = []  # ground truth
+    histB = []  # result
 
     for i in range(true[:, 0, 0].size):
         sliceA = true[i]
@@ -32,20 +62,24 @@ if __name__ == '__main__':
         valA = plt.hist(sliceA.ravel(), bins=range(256))
         valB = plt.hist(sliceB.ravel(), bins=range(256))
         histA.append(valA[0])
-        histB.append(valB[0])
+        histB.append(valB[0])"""
 
-    print(len(histB[0]))
-    print(len(histA[0]))
+    # print(len(histB[0]))
+    # print(len(histA[0]))
+    """for testing: 
     val = 0
     for i in range(len(histB[0])):
         val += histB[0][i]
-    print("total histB", val)
+    print("total histB", val)"""
 
-    histC = []
+    """print("histA", histA[0])
+    print("histB", histB[0])
+
+    histC = []  # array of differences of histograms
     for i in range(len(histA)):
         histC.append(histB[i] - histA[i])
 
-    histDiff = []
+    histDiff = []  # total difference of histograms
     for i in range(len(histC[0])):
         value = 0
         for j in range(len(histC)):
@@ -56,13 +90,14 @@ if __name__ == '__main__':
     print("histDiff length", len(histDiff))
     plt.clf()
 
-    plt.plot(histDiff)
+    plt.plot(histDiff[1:255])
 
     # print(histC)
-    plt.show()
+    plt.show()"""
 
     # mean absolute error
     result_tensor = torch.from_numpy(result)
+    print()
     true_tensor = torch.from_numpy(true)
     mae = MeanAbsoluteError()
     mae = mae(result_tensor.cpu(), true_tensor.cpu())
@@ -70,3 +105,22 @@ if __name__ == '__main__':
 
     MAE = sum(sum(sum(abs(result - true)))) / result.size
     print("mae from numpy", MAE)
+
+
+    psnr = PeakSignalNoiseRatio(reduction=None)
+    psnr = psnr(result_tensor.cpu(), true_tensor.cpu())
+    print("psnr", psnr.numpy())
+
+    ssim = StructuralSimilarityIndexMeasure()
+    ssim = ssim(result_tensor.unsqueeze(0).cpu(), true_tensor.unsqueeze(0).cpu())
+    print("ssim", ssim)
+
+    fid = FrechetInceptionDistance()  # unsure, this seems like it wants all the images possible
+    result_tensor.unsqueeze_(1)
+    result_tensor = result_tensor.repeat(1, 3, 1, 1)
+    true_tensor.unsqueeze_(1)
+    true_tensor = true_tensor.repeat(1, 3, 1, 1)
+    fid.update(result_tensor.type(torch.uint8), real=False)
+    fid.update(true_tensor.type(torch.uint8), real=True)
+    fid = fid.compute()
+    print("fid", fid.numpy())
