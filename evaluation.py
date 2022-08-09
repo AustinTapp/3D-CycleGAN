@@ -103,7 +103,7 @@ if __name__ == '__main__':
                     true[i, j, k] = 0
 
     # histogram
-    """histA = []  # ground truth
+    histA = []  # ground truth
     histB = []  # result
 
     for i in range(true[:, 0, 0].size):
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     plt.plot(histDiff[1:255])
 
     # print(histC)
-    plt.show()"""
+    plt.show()
 
     # mean absolute error
     result_tensor = torch.from_numpy(result)
