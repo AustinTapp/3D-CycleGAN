@@ -7,6 +7,54 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics import StructuralSimilarityIndexMeasure
 import gc
 
+def Registration(image, label, ct):
+    image, image_sobel, label, label_sobel, = image, image, label, label
+
+    Gaus = sitk.GradientMagnitudeRecursiveGaussianImageFilter()
+    image_sobel = Gaus.Execute(image_sobel)
+    label_sobel = Gaus.Execute(label_sobel)
+
+    fixed_image = label_sobel
+    moving_image = image_sobel
+
+    initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+                                                          moving_image,
+                                                          sitk.Euler3DTransform(),
+                                                          sitk.CenteredTransformInitializerFilter.GEOMETRY)
+
+    registration_method = sitk.ImageRegistrationMethod()
+    # registration_method.SetMetricAs
+    # Similarity metric settings.
+    # registration_method.SetMetricAsJointHistogramMutualInformation(numberOfHistogramBins=60, varianceForJointPDFSmoothing=0.25)
+    if (ct):
+        registration_method.SetMetricAsANTSNeighborhoodCorrelation(2)
+    else:
+        registration_method.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)  # original, was 50
+
+    registration_method.SetMetricSamplingStrategy(registration_method.RANDOM)
+    registration_method.SetMetricSamplingPercentage(0.1)
+    registration_method.SetInterpolator(sitk.sitkLinear)
+    # Optimizer settings.
+    registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100,
+                                                      convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    registration_method.SetOptimizerScalesFromPhysicalShift()
+
+    # Setup for the multi-resolution framework.
+    registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4, 2, 1])
+    registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2, 1, 0])
+    registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+
+    # Don't optimize in-place, we would possibly like to run this cell multiple times.
+    registration_method.SetInitialTransform(initial_transform, inPlace=False)
+
+    final_transform = registration_method.Execute(sitk.Cast(fixed_image, sitk.sitkFloat32),
+                                                  sitk.Cast(moving_image, sitk.sitkFloat32))
+
+    image = sitk.Resample(image, fixed_image, final_transform, sitk.sitkLinear, 0.0,
+                          moving_image.GetPixelID())
+
+    return image, label
+
 
 def Normalization(image):
     """
@@ -32,10 +80,12 @@ if __name__ == '__main__':
     true = Normalization(true)
 
     reader.SetFileName(
-        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/segment-component1.nii")
+        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/segment-component2-mse.nii")
     # reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/test/labels/0.nii") # output result
     result = reader.Execute()
     result = Normalization(result)
+    result, true = Registration(true, result, True)
+
     result = sitk.GetArrayFromImage(result)
     print("result shape", result.shape)
 
@@ -44,7 +94,7 @@ if __name__ == '__main__':
     # print(true[0])
     print("true slice", true[0].shape, "\nresult slice", result[0].shape)
 
-    """for i in range(result[:, 0, 0].size):
+    for i in range(result[:, 0, 0].size):
         for j in range(result[0, :, 0].size):
             for k in range(result[0, 0, :].size):
                 if result[i, j, k] < 0:
@@ -62,17 +112,13 @@ if __name__ == '__main__':
         valA = plt.hist(sliceA.ravel(), bins=range(256))
         valB = plt.hist(sliceB.ravel(), bins=range(256))
         histA.append(valA[0])
-        histB.append(valB[0])"""
+        histB.append(valB[0])
 
     # print(len(histB[0]))
     # print(len(histA[0]))
-    """for testing: 
-    val = 0
-    for i in range(len(histB[0])):
-        val += histB[0][i]
-    print("total histB", val)"""
 
-    """print("histA", histA[0])
+
+    print("histA", histA[0])
     print("histB", histB[0])
 
     histC = []  # array of differences of histograms
@@ -93,10 +139,11 @@ if __name__ == '__main__':
     plt.plot(histDiff[1:255])
 
     # print(histC)
-    plt.show()"""
+    plt.show()
 
     # mean absolute error
     result_tensor = torch.from_numpy(result)
+    result_tensor = torch.tensor(result_tensor, dtype=torch.float64)
     print()
     true_tensor = torch.from_numpy(true)
     mae = MeanAbsoluteError()
@@ -113,7 +160,7 @@ if __name__ == '__main__':
 
     ssim = StructuralSimilarityIndexMeasure()
     ssim = ssim(result_tensor.unsqueeze(0).cpu(), true_tensor.unsqueeze(0).cpu())
-    print("ssim", ssim)
+    print("ssim", ssim.numpy())
 
     fid = FrechetInceptionDistance()  # unsure, this seems like it wants all the images possible
     result_tensor.unsqueeze_(1)
