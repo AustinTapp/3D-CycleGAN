@@ -80,11 +80,11 @@ if __name__ == '__main__':
     true = Normalization(true)
 
     reader.SetFileName(
-        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/segment-component2-mse.nii")
+        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/2components-lambda2.nii")
     # reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/test/labels/0.nii") # output result
     result = reader.Execute()
     result = Normalization(result)
-    result, true = Registration(true, result, True)
+    true, result = Registration(true, result, True)
 
     result = sitk.GetArrayFromImage(result)
     print("result shape", result.shape)
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                     true[i, j, k] = 0
 
     # histogram
-    histA = []  # ground truth
+    """histA = []  # ground truth
     histB = []  # result
 
     for i in range(true[:, 0, 0].size):
@@ -139,13 +139,14 @@ if __name__ == '__main__':
     plt.plot(histDiff[1:255])
 
     # print(histC)
-    plt.show()
+    plt.show()"""
 
     # mean absolute error
     result_tensor = torch.from_numpy(result)
-    result_tensor = torch.tensor(result_tensor, dtype=torch.float64)
+
     print()
     true_tensor = torch.from_numpy(true)
+    true_tensor = torch.tensor(true_tensor, dtype=torch.float64)
     mae = MeanAbsoluteError()
     mae = mae(result_tensor.cpu(), true_tensor.cpu())
     print("mae from torch", mae.numpy())
