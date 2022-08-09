@@ -19,6 +19,8 @@ def sitk_mask(binary_image):
     #component_image = component_image.Execute(binary_image_sitk)
     sorted_component_image = sitk.RelabelComponent(component_image, sortByObjectSize=True)
     largest_component_binary_image = sorted_component_image == 1
+    component2 = sorted_component_image == 2
+    largest_component_binary_image = largest_component_binary_image + component2
     largest_component_binary_image = sitk.GetArrayFromImage(largest_component_binary_image)
     # sitk.Show(largest_component_binary_image)
     largest_component_binary_image = torch.from_numpy(largest_component_binary_image)
@@ -97,7 +99,7 @@ class CycleGANModel(BaseModel):
             visual_names_B.append('idt_B')
 
         self.visual_names = visual_names_A + visual_names_B
-        # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
+        # specify the models you want to save to the disk. The program will call base_model.save_net works and base_model.load_networks
         if self.isTrain:
             self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
         else:  # during test time, only load Gs
@@ -130,7 +132,7 @@ class CycleGANModel(BaseModel):
             self.criterionIdt = torch.nn.MSELoss()  # was L1
             # self.MICriterionCycle = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
             # self.MICriterionIdt = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
-            self.criterionSeg = torch.nn.L1Loss()
+            self.criterionSeg = torch.nn.MSELoss()
 
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
@@ -167,6 +169,7 @@ class CycleGANModel(BaseModel):
         self.mask_A = (self.real_A > t).float()
         self.mask_A = sitk_mask(self.mask_A)
         self.mask_B = (self.rec_A > t).float()  # this is segmenting synthetic ct
+        self.mask_B = sitk_mask(self.mask_B)
 
     def backward_D_basic(self, netD, real, fake):
         # Real
@@ -243,7 +246,7 @@ class CycleGANModel(BaseModel):
         # self.loss_G_A_MI = self.MICriterion(self.fake_B, self.real_A) * lambda_co_A
         # self.loss_G_B_MI = self.MICriterion(self.fake_A, self.real_B) * lambda_co_B
 
-        self.loss_seg = self.criterionSeg(self.mask_B, self.mask_A)  # for mask
+        self.loss_seg = self.criterionSeg(self.mask_B, self.mask_A) * 2 # for mask
 
         # need to add the MI loss/ shape constrain loss to the combined loss
 
