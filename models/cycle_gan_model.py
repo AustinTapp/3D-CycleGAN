@@ -3,7 +3,6 @@ import itertools
 import random
 from .base_model import BaseModel
 from . import networks3D
-from monai.losses.ssim_loss import SSIMLoss
 import SimpleITK as sitk
 
 
@@ -16,11 +15,11 @@ def sitk_mask(binary_image):
     #    optional minimumObjectSize parameter to get rid of small components).
     # 3. Get largest connected componet, label==1 in sorted component image.
     component_image = sitk.ConnectedComponent(binary_image_sitk)
-    #component_image = component_image.Execute(binary_image_sitk)
+    # component_image = component_image.Execute(binary_image_sitk)
     sorted_component_image = sitk.RelabelComponent(component_image, sortByObjectSize=True)
     largest_component_binary_image = sorted_component_image == 1
-    component2 = sorted_component_image == 2
-    largest_component_binary_image = largest_component_binary_image + component2
+    """component2 = sorted_component_image == 2
+    largest_component_binary_image = largest_component_binary_image + component2"""
     largest_component_binary_image = sitk.GetArrayFromImage(largest_component_binary_image)
     # sitk.Show(largest_component_binary_image)
     largest_component_binary_image = torch.from_numpy(largest_component_binary_image)
@@ -166,9 +165,9 @@ class CycleGANModel(BaseModel):
         # segmentation
         # sigmoid = torch.nn.Sigmoid()
         t = torch.Tensor([-.0001]).to('cuda:0')  # threshold
-        self.mask_A = (self.real_A > t).float()
+        self.mask_A = (self.real_B > t).float()
         self.mask_A = sitk_mask(self.mask_A)
-        self.mask_B = (self.rec_A > t).float()  # this is segmenting synthetic ct
+        self.mask_B = (self.rec_B > t).float()  # this is segmenting synthetic ct
         self.mask_B = sitk_mask(self.mask_B)
 
     def backward_D_basic(self, netD, real, fake):
@@ -180,12 +179,6 @@ class CycleGANModel(BaseModel):
         loss_D_fake = self.criterionGAN(pred_fake, False)
         # Combined loss
         loss_D = (loss_D_real + loss_D_fake) * 0.5
-        """# wasserstein
-        one = torch.FloatTensor([1]).squeeze()
-        mone = one * -1
-        loss_D_fake.backward(mone)
-        loss_D_real.backward(one)
-        loss_D = loss_D_real-loss_D_fake"""
         # backward
         loss_D.backward()
         # print(loss_D)
@@ -203,7 +196,6 @@ class CycleGANModel(BaseModel):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
-        data_range = self.real_A.max()
         '''
         lambda_coA & lambda_coB
         '''
@@ -246,7 +238,7 @@ class CycleGANModel(BaseModel):
         # self.loss_G_A_MI = self.MICriterion(self.fake_B, self.real_A) * lambda_co_A
         # self.loss_G_B_MI = self.MICriterion(self.fake_A, self.real_B) * lambda_co_B
 
-        self.loss_seg = self.criterionSeg(self.mask_B, self.mask_A) * 2 # for mask
+        self.loss_seg = self.criterionSeg(self.mask_B, self.mask_A) * 2  # for mask
 
         # need to add the MI loss/ shape constrain loss to the combined loss
 
