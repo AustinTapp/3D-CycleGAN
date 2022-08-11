@@ -21,7 +21,7 @@ def ct_window(image, center=50, width=100):
     windowed_image[windowed_image < low_bound] = low_bound
     windowed_image[windowed_image > up_bound] = up_bound
     windowed_image -= windowed_image.min()
-    windowed_image /= (windowed_image.max() - windowed_image.min()) # makes it 0 to 1?
+    windowed_image /= (windowed_image.max() - windowed_image.min())  # makes it 0 to 1?
     return windowed_image
 
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     list_labels = lstFiles(args.labels)
 
     # reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
-    reference_image = sitk.ReadImage("C:/Users/pmilab/Desktop/raw ctmri/CT/59.nii.gz")
+    reference_image = sitk.ReadImage("C:/Users/pmilab/Desktop/CTnoBed/69_noBed.nii.gz")
 
     print(reference_image)
     reference_image = resample_sitk_image(reference_image, spacing=args.resolution, interpolator='linear')
@@ -201,11 +201,10 @@ if __name__ == "__main__":
 
     for i in range(len(list_images) - int(args.split)):
 
-        # save_directory_images = './Data_folder/train/images'
-        save_directory_labels = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri"
-        save_directory_images = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct"
-        # save_directory_labels = './Data_folder/train/labels'
-        # save_directory_masks = './Data_folder/train/masks' # for segmentation
+        # save_directory_images = './Data_folder/train/images' # training
+        save_directory_labels = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri"  # testing
+        save_directory_images = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct"  # testing
+        # save_directory_labels = './Data_folder/train/labels' # training
 
         if not os.path.isdir(save_directory_images):
             os.mkdir(save_directory_images)
@@ -213,14 +212,6 @@ if __name__ == "__main__":
         if not os.path.isdir(save_directory_labels):
             os.mkdir(save_directory_labels)
 
-        """if int(args.split)+i >= len(list_labels):
-            a = list_images[int(args.split) + i]
-            image = sitk.ReadImage(a)
-        else:
-            b = list_labels[int(args.split) + i]
-            a = list_images[int(args.split) + i]
-            label = sitk.ReadImage(b)
-            image = sitk.ReadImage(a)"""
         b = list_labels[int(args.split) + i]
         a = list_images[int(args.split) + i]
 
@@ -233,45 +224,21 @@ if __name__ == "__main__":
         label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')
 
         label, reference_image = Registration(label, reference_image, False)
-        image, reference_image = Registration(image, reference_image, True)  # new
-        # image, label = Registration(image, label)
-
-        """image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear')
-        label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear')"""
+        image, reference_image = Registration(image, reference_image, True)
 
         image = Align(image, reference_image)
         label = Align(label, reference_image)
 
-        """# normalize
-        image = Normalization(image)
-        label = Normalization(label)"""
-
+        # windowing
         image = sitk.GetArrayFromImage(image)
-
         image = ct_window(image)
-        """label = sitk.GetArrayFromImage(label)
-        label /= (label.max()-label.min())"""
-
-        """# masking
-        segmentation = sitk.BinaryThresholdImageFilter()
-        segmentation.SetLowerThreshold(100) # tbd
-        mask = segmentation.Execute(image)"""
-        # label = sitk.GetImageFromArray(label)
         image = sitk.GetImageFromArray(image)
 
         label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii')
         image_directory = os.path.join(str(save_directory_images), str(i) + '.nii')
-        # mask_directory = os.path.join(str(save_directory_masks), str(i) + '.nii') # for mask
-
-        """if int(args.split)+i >= len(list_labels):
-            sitk.WriteImage(image, image_directory)
-        else:
-            sitk.WriteImage(image, image_directory)
-            sitk.WriteImage(label, label_directory)"""
 
         sitk.WriteImage(image, image_directory)
         sitk.WriteImage(label, label_directory)
-        # sitk.WriteImage(mask, mask_directory) # for mask
 
     for i in range(int(args.split)):
 
@@ -299,18 +266,11 @@ if __name__ == "__main__":
         image, reference_image = Registration(image, reference_image, True)  # new
         # image, label = Registration(image, label)
 
-        """image = resample_sitk_image(image, spacing=args.resolution, interpolator='linear') 
-        label = resample_sitk_image(label, spacing=args.resolution, interpolator='linear') """
 
         image = Align(image, reference_image)
         label = Align(label, reference_image)
 
         image = ct_window(image)
-        # label = ct_window(label)
-
-        """ # normalize
-        image = Normalization(image)
-        label = Normalization(label)"""
 
         label_directory = os.path.join(str(save_directory_labels), str(i) + '.nii')
         image_directory = os.path.join(str(save_directory_images), str(i) + '.nii')
