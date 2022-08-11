@@ -5,7 +5,9 @@ from torchmetrics import MeanAbsoluteError
 from torchmetrics import PeakSignalNoiseRatio
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics import StructuralSimilarityIndexMeasure
+import numpy as np
 import gc
+
 
 def Registration(image, label, ct):
     image, image_sobel, label, label_sobel, = image, image, label, label
@@ -80,7 +82,7 @@ if __name__ == '__main__':
     true = Normalization(true)
 
     reader.SetFileName(
-        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/2components-lambda2.nii")
+        "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/lambda2-btoa-1.nii")
     # reader.SetFileName("C:/Users/pmilab/PycharmProjects/3D-CycleGan-Pytorch-MedImaging-main/Data_folder/test/labels/0.nii") # output result
     result = reader.Execute()
     result = Normalization(result)
@@ -117,7 +119,6 @@ if __name__ == '__main__':
     # print(len(histB[0]))
     # print(len(histA[0]))
 
-
     print("histA", histA[0])
     print("histB", histB[0])
 
@@ -131,7 +132,7 @@ if __name__ == '__main__':
         for j in range(len(histC)):
             value += histC[j][i]
         histDiff.append(value)
-    print(histDiff)
+    # print(histDiff)
 
     print("histDiff length", len(histDiff))
     plt.clf()
@@ -153,7 +154,9 @@ if __name__ == '__main__':
 
     MAE = sum(sum(sum(abs(result - true)))) / result.size
     print("mae from numpy", MAE)
-
+    mean_mae = np.zeros(result[:, 0, 0].size)
+    mean_mae = sum(sum(abs(result - true))) / result[0].size
+    print("std of mae", np.std(mean_mae))
 
     psnr = PeakSignalNoiseRatio(reduction=None)
     psnr = psnr(result_tensor.cpu(), true_tensor.cpu())
@@ -163,7 +166,7 @@ if __name__ == '__main__':
     ssim = ssim(result_tensor.unsqueeze(0).cpu(), true_tensor.unsqueeze(0).cpu())
     print("ssim", ssim.numpy())
 
-    fid = FrechetInceptionDistance()  # unsure, this seems like it wants all the images possible
+    fid = FrechetInceptionDistance()
     result_tensor.unsqueeze_(1)
     result_tensor = result_tensor.repeat(1, 3, 1, 1)
     true_tensor.unsqueeze_(1)
