@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import SimpleITK as sitk
 
 
-
+#test
 
 def from_numpy_to_itk(image_np, image_itk):
     image_np = np.transpose(image_np, (2, 1, 0))
