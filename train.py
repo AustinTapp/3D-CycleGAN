@@ -76,7 +76,12 @@ if __name__ == '__main__':
                     'mae': val_score,
                     'epoch': epoch,
                     'step': total_steps,
-                    'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
+                    'Image': {
+                        'real A': wandb.Image(
+                            model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
+                        'real B': wandb.Image(
+                            model.get_current_visuals()['real_B'].squeeze().data.cpu().numpy()[:, :, 32]),
+                    },
                     'Labels': {
                         'true': wandb.Image(
                             model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 32]),  # recreated

@@ -6,6 +6,7 @@ MRI atlas files were downloaded from: https://www.bic.mni.mcgill.ca/ServicesAtla
 
 #                               Imports                                #
 # ----------------------------------------------------------------------
+import SimpleITK
 import torch
 import torch.nn as nn
 import numpy as np
@@ -82,6 +83,7 @@ class SoftHistogram1D(nn.Module):
         self.sigma = sigma
         self.delta = float(max - min) / float(bins)
         self.centers = float(min) + self.delta * (torch.arange(bins).float() + 0.5)  # Bin centers
+        self.centers = self.centers.to('cuda:0')
         self.centers = nn.Parameter(self.centers, requires_grad=False)  # Wrap for allow for cuda support
 
     def forward(self, x):
@@ -161,6 +163,8 @@ class MI_pytorch(nn.Module):
 
         # 2D joint histogram
         self.hist2d = SoftHistogram2D(bins, min, max, sigma)
+        self.hist1 = SoftHistogram1D(bins, min, max, sigma)
+        self.hist2 = SoftHistogram1D(bins, min, max, sigma)
 
         # Epsilon - to avoid log(0)
         self.eps = torch.tensor(0.00000001, dtype=torch.float32, requires_grad=False)
@@ -194,6 +198,8 @@ class MI_pytorch(nn.Module):
         # Calculate the marginal distributions
         Py = torch.sum(Pxy, dim=1).unsqueeze(1)
         Px = torch.sum(Pxy, dim=2).unsqueeze(1)
+        """Py = self.hist1(im1_flat)
+        Px = self.hist2(im2_flat)"""
 
         # Use the KL divergence distance to calculate the MI
         Px_Py = torch.matmul(Px.permute((0, 2, 1)), Py)
@@ -206,8 +212,10 @@ class MI_pytorch(nn.Module):
         # but it can handle batches
         if batch_size == 1:
             # No need for eps approximation in the case of a single batch
-            nzs = Pxy > 0  # Calculate based on the non-zero values only
-            mut_info = torch.matmul(Pxy[nzs], torch.log(Pxy[nzs]) - torch.log(Px_Py[nzs]))  # MI calculation
+            nzs = (Pxy > 0 ) # Calculate based on the non-zero values only
+            nzs1 = Px_Py >0
+            nzs2 = torch.bitwise_and(nzs, nzs1)
+            mut_info = torch.matmul(Pxy[nzs2], torch.log(Pxy[nzs2]) - torch.log(Px_Py[nzs2]))  # MI calculation
         else:
             # For arbitrary batch size > 1
             mut_info = torch.sum(Pxy * (torch.log(Pxy + self.eps) - torch.log(Px_Py + self.eps)), dim=1)
@@ -220,3 +228,19 @@ class MI_pytorch(nn.Module):
             mut_info = mut_info / float(batch_size)
 
         return mut_info
+
+if __name__ == '__main__':
+    ct = SimpleITK.ReadImage("C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct/0.nii")
+    mri = SimpleITK.ReadImage("C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri/0.nii")
+    ct_np = SimpleITK.GetArrayFromImage(ct)
+    # print(ct_np[100][100])
+    mri_np = SimpleITK.GetArrayFromImage(mri)
+    mri_np /= (mri_np.max()-mri_np.min())
+    print(mri_np[100][100])
+    ct_torch = torch.tensor(ct_np).to('cuda:0')
+    mri_torch = torch.tensor(mri_np).to('cuda:0')
+    print("ct", ct_torch[0][0])
+    print("mri", mri_torch)
+    mi = MI_pytorch(bins=256, min=0, max=1, sigma = 100)
+    mut_info = mi(ct_torch, mri_torch)
+    print(mut_info)

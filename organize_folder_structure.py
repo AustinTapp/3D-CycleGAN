@@ -174,9 +174,9 @@ def Registration(image, label, ct):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images', default='./Data_folder/T1', help='path to the images a (early frames)')
-parser.add_argument('--labels', default='./Data_folder/T2', help='path to the images b (late frames)')
-parser.add_argument('--split', default=50, help='number of images for testing')
+parser.add_argument('--images', default='./CTnoBed', help='path to the images a (early frames)')
+parser.add_argument('--labels', default='./raw_ctmri/T1', help='path to the images b (late frames)')
+parser.add_argument('--split', default=0, help='number of images for testing')
 parser.add_argument('--resolution', default=(1.6, 1.6, 1.6), help='new resolution to resample the all data')
 args = parser.parse_args()
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     list_labels = lstFiles(args.labels)
 
     # reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
-    reference_image = sitk.ReadImage("C:/Users/pmilab/Desktop/CTnoBed/69_noBed.nii.gz")
+    reference_image = sitk.ReadImage("./CTnoBed/69_noBed.nii.gz")
 
     print(reference_image)
     reference_image = resample_sitk_image(reference_image, spacing=args.resolution, interpolator='linear')
@@ -201,10 +201,10 @@ if __name__ == "__main__":
 
     for i in range(len(list_images) - int(args.split)):
 
-        # save_directory_images = './Data_folder/train/images' # training
-        save_directory_labels = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/mri"  # testing
-        save_directory_images = "C:/Users/pmilab/Desktop/preprocessed ctmri paired/ct"  # testing
-        # save_directory_labels = './Data_folder/train/labels' # training
+        save_directory_images = './Data_folder/train/images' # training
+        # save_directory_labels = "./preprocessed ctmri paired/mri"  # testing
+        # save_directory_images = "./preprocessed ctmri paired/ct"  # testing
+        save_directory_labels = './Data_folder/train/labels' # training
 
         if not os.path.isdir(save_directory_images):
             os.mkdir(save_directory_images)
