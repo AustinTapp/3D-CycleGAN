@@ -30,7 +30,7 @@ if __name__ == '__main__':
                               pin_memory=True)  # Here are then fed to the network with a defined batch size
 
     # WandB
-    experiment = wandb.init(project='3D-CycleGan', resume='allow', anonymous='must')
+    experiment = wandb.init(project='3D-CycleGan', resume='allow', anonymous='must', entity="3dcyclegan")
     # experiment = wandb.init(project='3D-CycleGan', resume=True, id= '') # if resuming (--continue_train)
     experiment.config.update(dict(epochs=opt.niter+opt.niter_decay, batch_size=opt.batch_size, learning_rate=opt.lr), allow_val_change=True)
     # -----------------------------------------------------
@@ -73,13 +73,15 @@ if __name__ == '__main__':
                     'mae': val_score,
                     'epoch': epoch,
                     'step': total_steps,
-                    'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 16]),
+                    'Image': wandb.Image(model.get_current_visuals()['real_A'].squeeze().data.cpu().numpy()[:, :, 32]),
                     'Labels': {
                         'true': wandb.Image(
-                            model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 16]),  # recreated
+                            model.get_current_visuals()['rec_A'].squeeze().data.cpu().numpy()[:, :, 32]),  # recreated
                         'pred': wandb.Image(
-                            model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 16]),  # t2 for now
-                    }
+                            model.get_current_visuals()['fake_B'].squeeze().data.cpu().numpy()[:, :, 32]),  # t2 for now
+                             },
+                    'Masks': {'true':wandb.Image(model.get_current_visuals()['skull_mask_true'].squeeze().data.cpu().numpy()[:,:,32]),
+                              'pred': wandb.Image(model.get_current_visuals()['skull_mask_pred'].squeeze().data.cpu().numpy()[:,:,32])}
                 })  # end
 
             if total_steps % opt.save_latest_freq == 0:

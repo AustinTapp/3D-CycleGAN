@@ -4,11 +4,10 @@ import random
 from .base_model import BaseModel
 from . import networks3D
 
-from monai.losses.ssim_loss import SSIMLoss
 import SimpleITK as sitk
 
 
-def sitk_mask(binary_image):
+def sitk_mask(binary_image): # consider switch to MONAI mask
     binary_image_np = binary_image.cpu().numpy()[0][0]
     binary_image_sitk = sitk.GetImageFromArray(binary_image_np)
     binary_image_sitk = sitk.Cast(binary_image_sitk, sitk.sitkInt8)
@@ -87,10 +86,10 @@ class CycleGANModel(BaseModel):
         BaseModel.initialize(self, opt)
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
+        #self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
         # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'MI_GA', 'MI_GB']
         # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'cor_coe_GA', 'D_B', 'G_B', 'cycle_B', 'cor_coe_GB']
-        # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'cor_coe_GA', 'D_B', 'G_B', 'cycle_B', 'skull_seg']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'skull_mask']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A', 'skull_mask_true', 'skull_mask_pred']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
@@ -131,12 +130,15 @@ class CycleGANModel(BaseModel):
             self.criterionCycleCT = torch.nn.MSELoss()  # was L1 or MAE, the cycle loss, used for the recreated image
             self.criterionIdtCT = torch.nn.MSELoss()  # now is MSE, more aggressive enforcement
 
+            #add in SSIM loss
+
             # https://towardsdatascience.com/most-common-loss-functions-in-machine-learning-c7212a99dae0 - Huber: 0.1
             self.criterionCycleMR = torch.nn.HuberLoss(reduction='mean', delta=0.1)  # relaxing MR reproduction level
             self.criterionIdtMR = torch.nn.HuberLoss(reduction='mean', delta=0.1)  # relaxing MR generator
             # self.MICriterion = MI_pytorch(bins=50, min=-1, max=0, sigma=100, reduction='sum')
 
-            self.criterionSkullSeg = torch.nn.L1Loss() #consider switch to MSE
+            self.criterionSkullSeg = torch.nn.L1Loss() #consider switch to MSE, MONAI has mask loss!
+                                                        # https://docs.monai.io/en/stable/_modules/monai/losses/spatial_mask.html
 
             """# wasserstein
                         self.optimizer_D = torch.optim.RMSprop(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()),
@@ -174,9 +176,9 @@ class CycleGANModel(BaseModel):
         # segmentation
         # sigmoid = torch.nn.Sigmoid()
         t = torch.Tensor([-.0001]).to('cuda:0')  # threshold
-        self.skull_mask_true = (self.real_A > t).float()  # produces mask from true CT
+        self.skull_mask_true = (self.real_B > t).float()  # produces mask from true CT
         self.skull_mask_true = sitk_mask(self.skull_mask_true)
-        self.skull_mask_pred = (self.rec_A > t).float()  # produces mask from synthetic CT
+        self.skull_mask_pred = (self.rec_B > t).float()  # produces mask from synthetic CT
 
     def backward_D_basic(self, netD, real, fake):
         # Real
@@ -253,16 +255,16 @@ class CycleGANModel(BaseModel):
         self.loss_G_B_MI = self.MICriterion(self.fake_A, self.real_B) * lambda_co_B'''
 
         #segmentaion loss
-        #self.loss_skull_mask = self.criterionSkullSeg(self.skull_mask_pred, self.skull_mask_true)  # for mask
+        self.loss_skull_mask = self.criterionSkullSeg(self.skull_mask_pred, self.skull_mask_true)  # for mask
 
         # self.loss_skull_mask = self.CriterionCycle(self.mask_B, self.mask_A) # for mask
         # need to add the MI loss/ shape constrain loss to the combined loss
 
         # combined loss
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B # original
+        #self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B # original
         # self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_cor_coe_GA + self.loss_cor_coe_GB
         # self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_G_A_MI + self.loss_G_B_MI # mutual information added
-        # self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_skull_mask  # skull_mask loss addition
+        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_skull_mask  # skull_mask loss addition
 
         self.loss_G.backward()
 

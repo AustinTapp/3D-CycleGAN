@@ -28,10 +28,10 @@ class BaseOptions():
         parser.add_argument('--netG', type=str, default='resnet_9blocks', help='selects model to use for netG. Look on Networks3D to see the all list')
 
         parser.add_argument('--gpu_ids', default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        parser.add_argument('--name', type=str, default='MRtoCTvariedHLmask', help='name of the experiment. It decides where to store samples and models')
+        parser.add_argument('--name', type=str, default='MRtoCTvariedHLmaskCT', help='name of the experiment. It decides where to store samples and models')
         parser.add_argument('--model', type=str, default='cycle_gan', help='chooses which model to use. cycle_gan')
 
-        parser.add_argument('--which_direction', type=str, default='BtoA', help='AtoB or BtoA (keep it AtoB)')
+        parser.add_argument('--which_direction', type=str, default='BtoA', help='AtoB or BtoA')
         parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         parser.add_argument('--workers', default=8, type=int, help='number of data loading workers')
         parser.add_argument('--norm', type=str, default='instance', help='instance normalization or batch normalization')
