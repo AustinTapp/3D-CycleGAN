@@ -1,7 +1,5 @@
 import os
-
-from matplotlib import pyplot as plt
-
+import numpy
 from options.test_options import TestOptions
 import sys
 from utils.NiftiDataset import *
@@ -12,6 +10,11 @@ import math
 from torch.autograd import Variable
 from tqdm import tqdm
 import datetime
+import matplotlib.pyplot as plt
+import SimpleITK as sitk
+
+
+
 
 def from_numpy_to_itk(image_np, image_itk):
     image_np = np.transpose(image_np, (2, 1, 0))
@@ -39,8 +42,7 @@ def prepare_batch(image, ijk_patch_indices):
 
 # inference single image
 def inference(model, image_path, result_path, resample, resolution, patch_size_x,
-              patch_size_y, patch_size_z, stride_inplane, stride_layer, batch_size=1):
-
+              patch_size_y, patch_size_z, stride_inplane, stride_layer, true_path, batch_size=1):
     # create transformations to image and labels
     transforms1 = [
         NiftiDataset_testing.Resample(resolution, resample)
@@ -163,7 +165,6 @@ def inference(model, image_path, result_path, resample, resolution, patch_size_x
         pred = model.get_current_visuals()
         pred = pred['fake_B']
         pred = pred.squeeze().data.cpu().numpy()
-        # plt.imshow(pred) for debugging, error tells size
 
         pred = (pred * 127.5) + 127.5
 
@@ -190,7 +191,6 @@ def inference(model, image_path, result_path, resample, resolution, patch_size_x
 
     # convert back to sitk space
     label = from_numpy_to_itk(label_np, image_pre_pad)
-    print(label)
     # ---------------------------------------------------------------------------------------------
 
     # save label
@@ -212,13 +212,15 @@ def inference(model, image_path, result_path, resample, resolution, patch_size_x
     print("{}: Save evaluate label at {} success".format(datetime.datetime.now(), result_path))
 
 
-if __name__ == '__main__':
 
+
+
+
+if __name__ == '__main__':
     opt = TestOptions().parse()
 
     model = create_model(opt)
     model.setup(opt)
 
     inference(model, opt.image, opt.result, opt.resample, opt.new_resolution, opt.patch_size[0],
-              opt.patch_size[1], opt.patch_size[2], opt.stride_inplane, opt.stride_layer, 1)
-
+              opt.patch_size[1], opt.patch_size[2], opt.stride_inplane, opt.stride_layer, opt.true, 1)
