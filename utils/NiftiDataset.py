@@ -68,6 +68,8 @@ def resize(img, new_size, interpolator):
     reference_physical_size[:] = [(sz - 1) * spc if sz * spc > mx else mx for sz, spc, mx in
                                   zip(img.GetSize(), img.GetSpacing(), reference_physical_size)]
 
+    #reference_physical_size[0] = reference_physical_size[1] = reference_physical_size[2] = 96
+
     # Create the reference image with a zero origin, identity direction cosine matrix and dimension
     reference_origin = np.zeros(dimension)
     reference_direction = np.identity(dimension).flatten()
@@ -95,8 +97,9 @@ def resize(img, new_size, interpolator):
     centering_transform = sitk.TranslationTransform(dimension)
     img_center = np.array(img.TransformContinuousIndexToPhysicalPoint(np.array(img.GetSize()) / 2.0))
     centering_transform.SetOffset(np.array(transform.GetInverse().TransformPoint(img_center) - reference_center))
-    centered_transform = sitk.Transform(transform)
-    centered_transform.AddTransform(centering_transform)
+    # centered_transform = sitk.Transform(transform) no longer needed since sitk 2.xx.xx
+    centered_transform = sitk.CompositeTransform([transform, centering_transform])
+    # centered_transform.AddTransform(centering_transform)
     # Using the linear interpolator as these are intensity images, if there is a need to resample a ground truth
     # segmentation then the segmentation image should be resampled using the NearestNeighbor interpolator so that
     # no new labels are introduced.
@@ -143,7 +146,7 @@ def resample_sitk_image(sitk_image, spacing=None, interpolator=None, fill_value=
     num_dim = sitk_image.GetDimension()
 
     if not interpolator:
-        interpolator = 'linear'
+        interpolator = 'bspline'
         pixelid = sitk_image.GetPixelIDValue()
 
         if pixelid not in [1, 2, 4]:
@@ -151,7 +154,7 @@ def resample_sitk_image(sitk_image, spacing=None, interpolator=None, fill_value=
                 'Set `interpolator` manually, '
                 'can only infer for 8-bit unsigned or 16, 32-bit signed integers')
         if pixelid == 1:  # 8-bit unsigned int
-            interpolator = 'nearest'
+            interpolator = 'bspline'
 
     orig_pixelid = sitk_image.GetPixelIDValue()
     orig_origin = sitk_image.GetOrigin()
@@ -179,10 +182,11 @@ def resample_sitk_image(sitk_image, spacing=None, interpolator=None, fill_value=
 
     sitk_interpolator = _SITK_INTERPOLATOR_DICT[interpolator]
 
+
+    new_spacing = np.array(orig_spacing) * np.array(orig_size) / np.array([96, 96, 96], dtype=np.int16)
     new_size = orig_size * (orig_spacing / new_spacing)
     new_size = np.ceil(new_size).astype(np.int)  # Image dimensions are in integers
     new_size = [int(s) for s in new_size]  # SimpleITK expects lists, not ndarrays
-
     resample_filter = sitk.ResampleImageFilter()
 
     # new

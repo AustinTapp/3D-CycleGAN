@@ -182,7 +182,7 @@ if __name__ == "__main__":
     list_labels = lstFiles(args.labels)
 
     #reference_image = list_images[2]  # setting a reference image to have all data in the same coordinate system, was list_labels[0]
-    reference_image = sitk.ReadImage("C:/Users/Austin Tapp/Documents/3D-CycleGAN/Data_folder/CTnoBed/69_noBed.nii.gz")
+    reference_image = sitk.ReadImage("./Data_folder/CTnoBed/76b_noBed.nii.gz")
 
     print(reference_image)
     reference_image = resample_sitk_image(reference_image, spacing=args.resolution, interpolator='linear')

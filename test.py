@@ -42,7 +42,7 @@ def prepare_batch(image, ijk_patch_indices):
 
 # inference single image
 def inference(model, image_path, result_path, resample, resolution, patch_size_x,
-              patch_size_y, patch_size_z, stride_inplane, stride_layer, true_path, batch_size=1):
+              patch_size_y, patch_size_z, stride_inplane, stride_layer, batch_size=1):
     # create transformations to image and labels
     transforms1 = [
         NiftiDataset_testing.Resample(resolution, resample)
@@ -198,22 +198,43 @@ def inference(model, image_path, result_path, resample, resolution, patch_size_x
 
     if resample is True:
         print("{}: Resampling label back to original image space...".format(datetime.datetime.now()))
-        # label = resample_sitk_image(label, spacing=image.GetSpacing(), interpolator='bspline')   # keep this commented
+        label = resample_sitk_image(label, spacing=image.GetSpacing(), interpolator='bspline')   # keep this commented
 
-        label = resize(label, (sitk.GetArrayFromImage(image)).shape[::-1], sitk.sitkLinear)
-        label.SetDirection(image.GetDirection())
-        label.SetOrigin(image.GetOrigin())
-        label.SetSpacing(image.GetSpacing())
+        #label = resize(label, (sitk.GetArrayFromImage(image)).shape[::-1], sitk.sitkLinear)
+        #label.SetDirection(image.GetDirection())
+        #label.SetOrigin(image.GetOrigin())
+        #label.SetSpacing(label.GetSpacing())
+
     else:
         label = label
+        # orig_spacing = np.array(label.GetSpacing())
+        # orig_size = np.array(label.GetSize())
+        # orig_origin = np.array(label.GetOrigin())
+        # orig_direction = np.array(label.GetDirection())
+        #
+        # new_spacing = np.array(orig_spacing) * np.array(orig_size) / np.array([96, 96, 96], dtype=np.int16)
+        # new_size = orig_size * (orig_spacing / new_spacing)
+        # new_size = np.ceil(new_size).astype(np.int)  # Image dimensions are in integers
+        # new_size = [int(s) for s in new_size]  # SimpleITK expects lists, not ndarrays
+        # resample_filter = sitk.ResampleImageFilter()
+        #
+        # # new
+        # resample_filter.SetSize(new_size)
+        # resample_filter.SetOutputOrigin(orig_origin)
+        # resample_filter.SetOutputSpacing(new_spacing)
+        # resample_filter.SetOutputDirection(orig_direction)
+        # #resample_filter.SetDefaultPixelValue(fill_value)
+        # #resample_filter.SetOutputPixelType(orig_pixelid)
+        # resample_filter.SetTransform(sitk.Transform())
+        # resample_filter.SetInterpolator(sitk.sitkLinear)
+        # resample_filter.SetTransform(sitk.Transform())
+        #
+        # resampled_sitk_image = resample_filter.Execute(label)
+        # label = resampled_sitk_image
 
     writer.SetFileName(result_path)
     writer.Execute(label)
     print("{}: Save evaluate label at {} success".format(datetime.datetime.now(), result_path))
-
-
-
-
 
 
 if __name__ == '__main__':
@@ -223,4 +244,4 @@ if __name__ == '__main__':
     model.setup(opt)
 
     inference(model, opt.image, opt.result, opt.resample, opt.new_resolution, opt.patch_size[0],
-              opt.patch_size[1], opt.patch_size[2], opt.stride_inplane, opt.stride_layer, opt.true, 1)
+              opt.patch_size[1], opt.patch_size[2], opt.stride_inplane, opt.stride_layer, 1)
